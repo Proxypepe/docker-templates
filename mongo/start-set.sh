@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker-compose up -d
+docker-compose -f docker-compose-cluster.yaml up -d
 
 sleep 5
 

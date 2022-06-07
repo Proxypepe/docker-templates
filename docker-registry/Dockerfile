@@ -1,0 +1,6 @@
+FROM registry:2
+VOLUME <volume>:/certs
+VOLUME <volume>:/var/lib/registry
+ENV REGISTRY_HTTP_TLS_CERTIFICATE=
+ENV REGISTRY_HTTP_TLS_KEY=
+EXPOSE 5000

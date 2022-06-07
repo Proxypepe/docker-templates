@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+  nagios:
+    image: jasonrivers/nagios
+    ports:
+    - 8081:80
+    environment:
+      - NAGIOSADMIN_USER=nagiosadmim
+      - NAGIOSADMIN_PASS=nagios
+    volumes:
+      - "./nagios:/opt/nagios/etc/"
+    
+  nginx:
+    image: nginx
+    ports:
+    - 8082:80
