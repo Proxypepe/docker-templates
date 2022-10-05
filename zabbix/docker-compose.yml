@@ -1,0 +1,73 @@
+version: '3.9'
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  zabbix:
+
+services:
+  postgres-server:
+    container_name: postgres-server
+    image: postgres
+    restart: always
+    ports:
+      - '32701:5432'
+    volumes:
+      - zabbix:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zabbix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    container_name: server
+    image: zabbix/zabbix-server-pgsql:ubuntu-latest
+    ports:
+      - "10051:10051"
+    restart: always
+    depends_on:
+      user_db:
+        condition: service_healthy
+      postgres-server:
+        condition: service_healthy
+    environment:
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix
+      - POSTGRES_DB=zabbix
+      - ZBX_HISTORYSTORAGETYPES=log,text
+      - ZBX_DEBUGLEVEL=1
+      - ZBX_HOUSEKEEPINGFREQUENCY=1
+      - ZBX_MAXHOUSEKEEPERDELETE=5000
+      - ZBX_PROXYCONFIGFREQUENCY=3600
+
+  web-nginx-pgsql:
+    container_name: web-nginx-pgsql
+    image: zabbix/zabbix-web-nginx-pgsql
+    ports:
+      - "80:8080"
+      - "443:8443"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    restart: always
+    depends_on:
+      - server
+      - postgres-server
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_SERVER_HOST: server
+      ZBX_SERVER_PORT: 10051
+      ZBX_POSTMAXSIZE: 64M
+      PHP_TZ: Europe/Moscow
+      ZBX_MAXEXECUTIONTIME: 500
