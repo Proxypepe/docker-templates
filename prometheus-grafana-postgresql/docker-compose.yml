@@ -3,22 +3,30 @@ services:
   grafana:
     container_name: grafana
     image: grafana/grafana
+    hostname: grafana
     ports:
       - 3000:3000
 
   prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus:/etc/prometheus/
     container_name: prometheus
-    image: prom/prometheus
+    hostname: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
     ports:
       - 9090:9090
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Moscow"
 
   postgres:
     container_name: postgres
     image: postgres
+    hostname: postgres
     ports:
-      - 5432:5432
+      - 37200:5432
     volumes:
       - ./backup:/var/lib/postgresql/data
     environment:
@@ -35,3 +43,44 @@ services:
     links:
       - postgres
       - prometheus
+
+
+  alertmanager-bot:
+    env_file:
+      - ./bot.env
+    command:
+      - --alertmanager.url=http://alertmanager:9093
+      - --log.level=info
+      - --store=bolt
+      - --bolt.path=./data/bot.db
+      - --telegram.admin="${TELEGRAM_ADMIN}"
+      - --telegram.token="${TELEGRAM_TOKEN}"
+
+    image: metalmatze/alertmanager-bot:0.4.3
+    ports:
+      - 8080:8080
+    container_name: alertmanager-bot
+    hostname: alertmanager-bot
+    environment:
+      TZ: "Europe/Moscow"
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+
+
+  alertmanager:
+    image: prom/alertmanager:v0.21.0
+    user: root
+    ports:
+      - 9093:9093
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    container_name: alertmanager
+    hostname: alertmanager
+    environment:
+      TZ: "Europe/Moscow"
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/etc/alertmanager/data'
+ 
