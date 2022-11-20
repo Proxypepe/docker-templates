@@ -8,6 +8,24 @@ volumes:
   zabbix:
 
 services:
+  user_db:
+    container_name: user_db
+    image: postgres
+    restart: always
+    ports:
+      - '32702:5432'
+    volumes:
+      - ./zabbix/user:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: 1234
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
   postgres-server:
     container_name: postgres-server
     image: postgres
