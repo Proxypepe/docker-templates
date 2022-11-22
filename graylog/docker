@@ -1,0 +1,92 @@
+version: '3.9'
+
+services:
+  mongodb: 
+    image: mongo:4.2
+    volumes:
+      - ./graylog.js:/docker-entrypoint-initdb.d/graylog.js:ro
+      - mongo_data:/data/db
+    environment:
+        - MONGO_INITDB_ROOT_USERNAME=root
+        - MONGO_INITDB_ROOT_PASSWORD=drUqGGCMh
+  
+  elasticsearch: 
+    image: elasticsearch:7.9.0
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: "on-failure"
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 1g
+
+  graylog-service:
+    image: graylog/graylog:4.3 
+    restart: "on-failure"
+    volumes:
+      - graylog_data:/usr/share/graylog/data 
+    environment:
+      GRAYLOG_ELASTICSEARCH_VERSION: 7.9.0
+      GRAYLOG_MONGODB_URI: "mongodb://graylog:vWGzncmBe9@mongodb:27017/graylog"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      GRAYLOG_PASSWORD_SECRET: somepasswordpepper
+      GRAYLOG_ROOT_PASSWORD_SHA2: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      GRAYLOG_HTTP_EXTERNAL_URI: http://127.0.0.1:9000/
+      GRAYLOG_WEB_ENDPOINT_URI: http://127.0.0.1:9000/api
+    links:
+      - mongodb
+      - elasticsearch
+    depends_on:
+      elasticsearch:
+        condition: "service_started"
+      mongodb:
+        condition: "service_started"
+    ports:
+      - 9000:9000
+      - 1514:1514
+      - 1514:1514/udp
+      - 12201:12201
+      - 12201:12201/udp
+    entrypoint: /usr/bin/tini -- wait-for-it elasticsearch:9200 --  /docker-entrypoint.sh
+  
+  web-server:
+    image: nginx
+    ports:
+      - "8081:80"
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "udp://localhost:12201"
+        tag: "nginx log"
+
+  # kibana:
+  #   image: kibana:8.4.3
+  #   container_name: kibana
+  #   restart: always
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   ports:
+  #     - '5601:5601'
+  #   depends_on:
+  #     - elasticsearch
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   mem_limit: 512M
+
+volumes:
+  mongo_data:
+    driver: local
+  es_data:
+    driver: local
+  graylog_data:
+    driver: local
